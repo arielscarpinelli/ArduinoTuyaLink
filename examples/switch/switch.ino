@@ -1,12 +1,14 @@
 #define TUYA_DEBUG
 
 #include <Arduino.h>
+#include <ArduinoJson.h>
+#include <TuyaLink.h>
+
 #ifdef ESP8266
     #include <ESP8266WiFi.h>
 #else
     #include <WiFi.h>
 #endif
-#include <TuyaLink.h>
 
 #define SWITCH_DP_ID_KEY "101"
 
@@ -39,26 +41,11 @@ void ICACHE_RAM_ATTR toggle() {
 void onDpReceive(TuyaLink& instance, const char* jsonDps) {
     DEBUG_TUYA("Data point download value:%s", jsonDps);
 
-    /* We already have cJSON around so we will use it to parse 
-    and spare the sketch bytes to import ArduinoJSON instead*/
-    cJSON* dps = cJSON_Parse(jsonDps);
-    if (dps == NULL) {
-        DEBUG_TUYA("JSON parsing error, exit!");
-        return;
-    }
+    StaticJsonDocument<256> doc;
+    deserializeJson(doc, jsonDps);
 
-    /* Process dp data */
-    cJSON* switchObj = cJSON_GetObjectItem(dps, SWITCH_DP_ID_KEY);
-    if (cJSON_IsTrue(switchObj)) {
-        state = true;
-        applyState();
-    } else if (cJSON_IsFalse(switchObj)) {
-        state = false;
-        applyState();
-    }
-
-    /* relese cJSON DPS object */
-    cJSON_Delete(dps);
+    state = doc[SWITCH_DP_ID_KEY];
+    applyState();
 
     /* Report the received data to synchronize the switch status. */
     instance.reportDp(jsonDps);

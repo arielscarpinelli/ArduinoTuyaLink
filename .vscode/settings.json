@@ -19,6 +19,7 @@
         "vector": "cpp",
         "iterator": "cpp",
         "cstddef": "cpp",
-        "__locale": "cpp"
+        "__locale": "cpp",
+        "multitimer.h": "c"
     }
 }
