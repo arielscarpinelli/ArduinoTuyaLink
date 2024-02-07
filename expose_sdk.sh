@@ -1,6 +1,6 @@
 #!/bin/sh
 
-SDK=tuya-iot-link-sdk-embedded-c
+SDK=tuya-connect-kit-for-mqtt-embedded-c
 
 rm -rf src
 mkdir src
@@ -30,6 +30,7 @@ ln -s ../source src/src
 
 # rename base64.h link to mbedtlsbase64.h
 mv src/base64.h src/mbedtlsbase64.h
+mv src/queue.h src/tuya_queue.h
 
 # Apply diff
 cd $SDK

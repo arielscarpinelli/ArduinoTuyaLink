@@ -1,3 +1,4 @@
-[submodule "tuya-iot-link-sdk-embedded-c"]
-	path = tuya-iot-link-sdk-embedded-c
-	url = https://github.com/tuya/tuya-iot-link-sdk-embedded-c.git
+[submodule "tuya-connect-kit-for-mqtt-embedded-c"]
+	path = tuya-connect-kit-for-mqtt-embedded-c
+	url = git@github.com:tuya/tuya-connect-kit-for-mqtt-embedded-c.git
+	branch = without-submodules
