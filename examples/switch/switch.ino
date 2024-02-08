@@ -6,14 +6,20 @@
 #else
     #include <WiFi.h>
 #endif
+
+#ifdef ESP32
+  #define LED_BUILTIN 2
+  #define D0 0
+#endif  
+
+
 #include <TuyaLink.h>
 
-#define SWITCH_DP_ID_KEY "101"
+#define SWITCH_DP_ID_KEY "switch_1"
 
-#define TUYA_PRODUCT_KEY "yourPID"
-#define TUYA_DEVICE_UUID "yourUUID"
-#define TUYA_DEVICE_AUTHKEY "yourAuthKey"
-#define SOFTWARE_VER "1.0.0"
+#define TUYA_PRODUCT_ID "yourPID"
+#define TUYA_DEVICE_ID "yourID"
+#define TUYA_DEVICE_SECRET "yourSecret"
 
 #define WLAN_SSID "yourSSID"
 #define WLAN_PASS "yourPass"
@@ -25,8 +31,11 @@ bool needsReport = false;
 
 void applyState() {
     DEBUG_TUYA("Switch state %d", state);
+#ifdef ESP8266    
     digitalWrite(LED_BUILTIN, state ? LOW : HIGH); // LED is inverted
-    digitalWrite(D1, state ? HIGH : LOW);
+#else
+    digitalWrite(LED_BUILTIN, state);
+#endif    
 }
 
 void ICACHE_RAM_ATTR toggle() {
@@ -35,59 +44,47 @@ void ICACHE_RAM_ATTR toggle() {
     applyState();
 }
 
-/* DP data reception processing function */
-void onDpReceive(TuyaLink& instance, const char* jsonDps) {
-    DEBUG_TUYA("Data point download value:%s", jsonDps);
-
-    /* We already have cJSON around so we will use it to parse 
-    and spare the sketch bytes to import ArduinoJSON instead*/
-    cJSON* dps = cJSON_Parse(jsonDps);
-    if (dps == NULL) {
-        DEBUG_TUYA("JSON parsing error, exit!");
-        return;
-    }
-
-    /* Process dp data */
-    cJSON* switchObj = cJSON_GetObjectItem(dps, SWITCH_DP_ID_KEY);
-    if (cJSON_IsTrue(switchObj)) {
-        state = true;
-        applyState();
-    } else if (cJSON_IsFalse(switchObj)) {
-        state = false;
-        applyState();
-    }
-
-    /* relese cJSON DPS object */
-    cJSON_Delete(dps);
-
-    /* Report the received data to synchronize the switch status. */
-    instance.reportDp(jsonDps);
+void onMessage(TuyaLink& instance, const char* msg) {
+    DEBUG_TUYA("on message %s", msg);
 }
 
 void reportIfNeeded() {
     if (needsReport) {
-        char buffer[16];
+        char buffer[32];
         sprintf(buffer, "{" SWITCH_DP_ID_KEY ": %s}", state ? "true" : "false");
-        needsReport = tuyaLink.reportDp(buffer);
+        DEBUG_TUYA("Reporting %s", buffer);
+        needsReport = !tuyaLink.reportProperty(buffer);
     }
 }
 
 void setup() {
+#ifdef ESP8266  
     Serial.begin(74880);
+#else
+    Serial.begin(115200);
+#endif
 
+    DEBUG_TUYA("Switch example. Welcome!");
+    
+    WiFi.mode(WIFI_STA);
     WiFi.begin(WLAN_SSID, WLAN_PASS);
 
     pinMode(LED_BUILTIN, OUTPUT);
-    pinMode(D1, OUTPUT);
 
-    pinMode(D2, INPUT_PULLUP);
-    attachInterrupt(digitalPinToInterrupt(D2), toggle, FALLING);
+    pinMode(D0, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(D0), toggle, FALLING);
 
-    tuyaLink.onDpReceive(onDpReceive);
-    tuyaLink.begin(TUYA_PRODUCT_KEY, TUYA_DEVICE_UUID, TUYA_DEVICE_AUTHKEY, SOFTWARE_VER);
+    while (WiFi.status() != WL_CONNECTED) {
+      delay(100);
+    }
+
+    tuyaLink.onMessage(onMessage);
+    tuyaLink.begin(TUYA_PRODUCT_ID, TUYA_DEVICE_ID, TUYA_DEVICE_SECRET);
+
+
 }
 
-void loop() {    
-    tuyaLink.handle();
+void loop() {
+    tuyaLink.loop();
     reportIfNeeded();
 }

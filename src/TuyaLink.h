@@ -1,7 +1,7 @@
 #ifndef TUYA_LINK_H
 #define TUYA_LINK_H
 
-#include "tuya_iot.h"
+#include "tuya_cacert.h"
 #include <functional>
 
 #include "TuyaDebug.h"
@@ -18,30 +18,31 @@ class TuyaLink;
 
 typedef std::function<void(TuyaLink&)> TuyaLinkConnectedCallback;
 typedef std::function<void(TuyaLink&)> TuyaLinkDisconnectedCallback;
-typedef std::function<void(TuyaLink&, const char*)> TuyaLinkDPReceiveCallback;
+typedef std::function<void(TuyaLink&, const char*)> TuyaLinkOnMessageCallback;
 
 class TuyaLink {
 public:
 	TuyaLink();
-	bool begin(const char* productKey, const char* uuid, const char* authKey, const char* softwareVer);
+	bool begin(const char* productKey, const char* uuid, const char* authKey);
 	void onConnected(TuyaLinkConnectedCallback onConnectedCallback) {
 		this->onConnectedCallback = onConnectedCallback;
 	};
 	void onDisconnected(TuyaLinkDisconnectedCallback onDisconnectedCallback) {
 		this->onDisconnectedCallback = onDisconnectedCallback;
 	};
-	void onDpReceive(TuyaLinkDPReceiveCallback onDpReceiveCallback) {
-		this->onDpReceiveCallback = onDpReceiveCallback;
+	void onMessage(TuyaLinkOnMessageCallback onMessageCallback) {
+		this->onMessageCallback = onMessageCallback;
 	}
-	bool reportDp(const char* jsonString);
-	void handle();
+	bool reportProperty(const char* jsonString);
+	void loop();
 
 private:
-	tuya_iot_client_t client;
+	WiFiClientSecure wifiClient;
+	PubSubClient pubSub;
+	const char* deviceId;
 	TuyaLinkConnectedCallback onConnectedCallback = [](TuyaLink&){};
 	TuyaLinkDisconnectedCallback onDisconnectedCallback = [](TuyaLink&){};
-	TuyaLinkDPReceiveCallback onDpReceiveCallback = [](TuyaLink&, const char*){};
-	void handleEvent(tuya_event_msg_t* event);
+	TuyaLinkOnMessageCallback onMessageCallback = [](TuyaLink&, const char* msg){};
 };
 
 #endif
