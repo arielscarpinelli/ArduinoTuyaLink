@@ -23,7 +23,7 @@ typedef std::function<void(TuyaLink&, const char*)> TuyaLinkOnMessageCallback;
 class TuyaLink {
 public:
 	TuyaLink();
-	bool begin(const char* productKey, const char* uuid, const char* authKey);
+	bool begin(String productKey, String deviceId, String deviceSecret);
 	void onConnected(TuyaLinkConnectedCallback onConnectedCallback) {
 		this->onConnectedCallback = onConnectedCallback;
 	};
@@ -39,10 +39,13 @@ public:
 private:
 	WiFiClientSecure wifiClient;
 	PubSubClient pubSub;
-	const char* deviceId;
+	String deviceId;
+	String deviceSecret;
 	TuyaLinkConnectedCallback onConnectedCallback = [](TuyaLink&){};
 	TuyaLinkDisconnectedCallback onDisconnectedCallback = [](TuyaLink&){};
 	TuyaLinkOnMessageCallback onMessageCallback = [](TuyaLink&, const char* msg){};
+
+	bool reconnect();
 };
 
 #endif

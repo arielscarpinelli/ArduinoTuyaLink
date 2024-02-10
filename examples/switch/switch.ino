@@ -9,9 +9,9 @@
 
 #ifdef ESP32
   #define LED_BUILTIN 2
-  #define D0 0
 #endif  
 
+#define BUTTON_PIN 0 // it is the "flash" button in both esp32 and esp8266 node mcus
 
 #include <TuyaLink.h>
 
@@ -71,8 +71,8 @@ void setup() {
 
     pinMode(LED_BUILTIN, OUTPUT);
 
-    pinMode(D0, INPUT_PULLUP);
-    attachInterrupt(digitalPinToInterrupt(D0), toggle, FALLING);
+    pinMode(BUTTON_PIN, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), toggle, FALLING);
 
     while (WiFi.status() != WL_CONNECTED) {
       delay(100);

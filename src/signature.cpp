@@ -1,5 +1,26 @@
 #include "TuyaDebug.h"
 #include <sys/time.h>
+#include <cstdio>
+
+#ifdef ESP8266
+
+#include <bearssl/bearssl.h>
+
+void bearssl_message_digest_hmac(const br_hash_class *hashType,
+                                const uint8_t* key, size_t keylen,
+                                const uint8_t* input, size_t ilen, 
+                                uint8_t* digest, size_t digestlen) {
+
+    br_hmac_key_context keyContext;
+    br_hmac_context hmacContext;
+
+    br_hmac_key_init(&keyContext, hashType, key, keylen);
+    br_hmac_init(&hmacContext, &keyContext, digestlen);
+    br_hmac_update(&hmacContext, input, ilen);
+    br_hmac_out(&hmacContext, digest); 
+}
+
+#else
 
 #include "mbedtls/platform.h"
 #include "mbedtls/cipher.h"
@@ -30,6 +51,14 @@ exit:
     return ret;
 }
 
+#endif
+
+#define SHA256_DIGEST_LENGTH 32
+#define DEVICE_SECRET_LENGTH 16
+
+
+
+
 int tuya_mqtt_auth_signature_calculate(const char* deviceId, const char* deviceSecret,
 											  char* clientID, char* username, char* password) {
 
@@ -48,10 +77,16 @@ int tuya_mqtt_auth_signature_calculate(const char* deviceId, const char* deviceS
     /* password */
     int i = 0;
     char password_stuff[255];
-    uint8_t digest[32];
+    uint8_t digest[SHA256_DIGEST_LENGTH];
     size_t slen = sprintf(password_stuff, "deviceId=%s,timestamp=%d,secureMode=1,accessType=1", deviceId, timestamp);
-    mbedtls_message_digest_hmac(MBEDTLS_MD_SHA256, (const uint8_t*)deviceSecret, 16, (const uint8_t*)password_stuff, slen, digest);
-    for (i = 0; i < 32; i++) {
+
+    #ifdef ESP8266
+        bearssl_message_digest_hmac(&br_sha256_vtable, (const uint8_t*)deviceSecret, DEVICE_SECRET_LENGTH, (const uint8_t*)password_stuff, slen, digest, SHA256_DIGEST_LENGTH);
+    #else    
+        mbedtls_message_digest_hmac(MBEDTLS_MD_SHA256, (const uint8_t*)deviceSecret, DEVICE_SECRET_LENGTH, (const uint8_t*)password_stuff, slen, digest);
+    #endif
+
+    for (i = 0; i < SHA256_DIGEST_LENGTH; i++) {
         sprintf(password + 2*i, "%02x", digest[i]);
     }
     DEBUG_TUYA("password:%s", password);

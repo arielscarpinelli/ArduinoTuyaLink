@@ -4,23 +4,36 @@
 
 TuyaLink::TuyaLink():pubSub(wifiClient) {}
 
-bool TuyaLink::begin(const char* productKey, 
-	const char* deviceId, 
-	const char* deviceSecret) {
+bool TuyaLink::begin(String productKey, 
+	String deviceId, 
+	String deviceSecret) {
 
     this->deviceId = deviceId;
+    this->deviceSecret = deviceSecret;
 
+#ifdef ESP8266
+    X509List cert((const uint8_t*) tuya_cacert_pem, strlen(tuya_cacert_pem));
+    
+    configTime(0, 0, "pool.ntp.org");
+    wifiClient.setTrustAnchors(&cert);
+#else    
 	wifiClient.setCACert(tuya_cacert_pem);
+#endif    
     pubSub.setServer("m1.tuyacn.com", 8883);
 	pubSub.setCallback([this](char* topic, uint8_t* message, unsigned int len) {
         this->onMessageCallback(*this, topic);
 	});
 
+    return reconnect();
+}
+
+bool TuyaLink::reconnect() {
     char clientId[128];
     char username[128];
     char password[128];
 
-	if(tuya_mqtt_auth_signature_calculate(deviceId, deviceSecret, clientId, username, password) != 0) {
+	if(tuya_mqtt_auth_signature_calculate(deviceId.c_str(), deviceSecret.c_str(), clientId, username, password) != 0) {
+        DEBUG_TUYA("failed to calculate signature");
         return false;
     };
 
@@ -29,13 +42,17 @@ bool TuyaLink::begin(const char* productKey,
         DEBUG_TUYA("failed to connect");
         return false;
     }
+
+    DEBUG_TUYA("connected");
     
     char topic[128];
-    sprintf(topic, "tylink/%s/channel/downlink/auto_subscribe", deviceId);
+    sprintf(topic, "tylink/%s/channel/downlink/auto_subscribe", deviceId.c_str());
 	if(!pubSub.subscribe(topic, 1)) {
         DEBUG_TUYA("failed to subscribe");
         return false;
     };
+
+    DEBUG_TUYA("subscribed");
 
 	return true;
 }
@@ -54,5 +71,7 @@ bool TuyaLink::reportProperty(const char* jsonString) {
 }
 
 void TuyaLink::loop() {
-    pubSub.loop();
+    if (!pubSub.loop()) {
+        reconnect();
+    }
 }
