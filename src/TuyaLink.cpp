@@ -57,21 +57,39 @@ bool TuyaLink::reconnect() {
 	return true;
 }
 
-
-
-bool TuyaLink::reportProperty(const char* jsonString) {
-
-    char topic[128];
-    sprintf(topic, "tylink/%s/thing/property/report", deviceId);
-
-    char payload[256];
-    sprintf(payload, "{\"data\": %s}", jsonString);
-
-    return pubSub.publish(topic, payload);
-}
-
 void TuyaLink::loop() {
     if (!pubSub.loop()) {
         reconnect();
     }
 }
+
+void TuyaLink::initReportPropertyMessage(JsonDocument& doc, const String& property) {
+
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    time_t time = (uint32_t)tv.tv_sec;
+
+    doc["time"] = time;
+    
+    String msgId = String(time);
+    msgId.concat(tv.tv_usec);
+    doc["msgId"] = msgId;
+
+	JsonObject data = doc.createNestedObject("data");
+    JsonObject prop = data.createNestedObject(property);
+	prop["time"] = time;
+}
+
+bool TuyaLink::report(const char* topicTail, const JsonDocument& doc) {
+
+    char topic[128];
+    sprintf(topic, "tylink/%s/%s", deviceId.c_str(), topicTail);
+
+    char buffer[256];
+    size_t n = serializeJson(doc, buffer);
+
+    DEBUG_TUYA("Reporting %.*s to %s", n, buffer, topic);
+
+    return pubSub.publish(topic, buffer, n);
+}
+

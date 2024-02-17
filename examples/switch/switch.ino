@@ -50,10 +50,7 @@ void onMessage(TuyaLink& instance, const char* msg) {
 
 void reportIfNeeded() {
     if (needsReport) {
-        char buffer[32];
-        sprintf(buffer, "{" SWITCH_DP_ID_KEY ": %s}", state ? "true" : "false");
-        DEBUG_TUYA("Reporting %s", buffer);
-        needsReport = !tuyaLink.reportProperty(buffer);
+        needsReport = !tuyaLink.reportProperty(SWITCH_DP_ID_KEY, state);
     }
 }
 
@@ -70,6 +67,7 @@ void setup() {
     WiFi.begin(WLAN_SSID, WLAN_PASS);
 
     pinMode(LED_BUILTIN, OUTPUT);
+    applyState();
 
     pinMode(BUTTON_PIN, INPUT_PULLUP);
     attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), toggle, FALLING);

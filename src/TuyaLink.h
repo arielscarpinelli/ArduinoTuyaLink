@@ -8,6 +8,7 @@
 
 #include <PubSubClient.h>
 #include <WiFiClientSecure.h>
+#include <ArduinoJson.h>
 #ifdef ESP8266
     #include <ESP8266HTTPClient.h>
 #else
@@ -33,7 +34,14 @@ public:
 	void onMessage(TuyaLinkOnMessageCallback onMessageCallback) {
 		this->onMessageCallback = onMessageCallback;
 	}
-	bool reportProperty(const char* jsonString);
+
+	bool reportProperty(const String& name, auto value) {
+		StaticJsonDocument<200> msg;
+		initReportPropertyMessage(msg, name);
+		msg["data"][name]["value"] = value;
+		return report("thing/property/report", msg);
+	}
+
 	void loop();
 
 private:
@@ -46,6 +54,11 @@ private:
 	TuyaLinkOnMessageCallback onMessageCallback = [](TuyaLink&, const char* msg){};
 
 	bool reconnect();
+
+
+	void initReportPropertyMessage(JsonDocument& doc, const String& property);
+
+	bool report(const char* topic, const JsonDocument& doc);
 };
 
 #endif
