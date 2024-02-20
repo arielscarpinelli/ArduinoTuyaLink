@@ -6,7 +6,8 @@ TuyaLink::TuyaLink():pubSub(wifiClient) {}
 
 bool TuyaLink::begin(String productKey, 
 	String deviceId, 
-	String deviceSecret) {
+	String deviceSecret,
+    const char* mqttEndpoint) {
 
     this->deviceId = deviceId;
     this->deviceSecret = deviceSecret;
@@ -19,9 +20,9 @@ bool TuyaLink::begin(String productKey,
 #else    
 	wifiClient.setCACert(tuya_cacert_pem);
 #endif    
-    pubSub.setServer("m1.tuyacn.com", 8883);
+    pubSub.setServer(mqttEndpoint, 8883);
 	pubSub.setCallback([this](char* topic, uint8_t* message, unsigned int len) {
-        this->onMessageCallback(*this, topic);
+        this->processIncomingMessage(topic, message, len);
 	});
 
     return reconnect();
@@ -93,3 +94,24 @@ bool TuyaLink::report(const char* topicTail, const JsonDocument& doc) {
     return pubSub.publish(topic, buffer, n);
 }
 
+void TuyaLink::processIncomingMessage(char* topic, uint8_t* message, unsigned int len) {
+    // We are not supporting sub-devices. As such, we ignore checking the device id in the topic.
+    if (strstr(topic, "thing/property/set") != NULL) {
+        StaticJsonDocument<256> doc;
+        DeserializationError err = deserializeJson(doc, (char*)message, len);
+        if (err) {
+            DEBUG_TUYA("processIncomingMessage failed to deserialize json: %s for topic: %s message: %.*s", err.c_str(), topic, len, message);
+            return;
+        }
+
+        auto data = doc["data"];
+        if (data == nullptr || !data.is<JsonObject>()) {
+            DEBUG_TUYA("data field not found or invalid for topic: %s message: %.*s",  topic, len, message);
+        }
+
+        bool ok = true;
+        for(JsonPair prop : data.as<JsonObject>()) {
+            ok = ok && this->onPropertySetCallback(*this, prop.key().c_str(), PropertyValue(prop.value()));
+        }
+    }
+}

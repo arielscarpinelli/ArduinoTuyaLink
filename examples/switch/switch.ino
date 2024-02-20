@@ -44,8 +44,16 @@ void ICACHE_RAM_ATTR toggle() {
     applyState();
 }
 
-void onMessage(TuyaLink& instance, const char* msg) {
-    DEBUG_TUYA("on message %s", msg);
+bool onPropertySet(TuyaLink& instance, const char* name, PropertyValue value) {
+    DEBUG_TUYA("on property %s, %d", name, value.as<bool>());
+    if (strcmp(SWITCH_DP_ID_KEY, name) == 0) {
+        state = value.as<bool>();
+        applyState();
+        return true;
+    } else {
+        DEBUG_TUYA("unknown property %s", name);
+    }
+    return false;
 }
 
 void reportIfNeeded() {
@@ -76,8 +84,8 @@ void setup() {
       delay(100);
     }
 
-    tuyaLink.onMessage(onMessage);
-    tuyaLink.begin(TUYA_PRODUCT_ID, TUYA_DEVICE_ID, TUYA_DEVICE_SECRET);
+    tuyaLink.onPropertySet(onPropertySet);
+    tuyaLink.begin(TUYA_PRODUCT_ID, TUYA_DEVICE_ID, TUYA_DEVICE_SECRET, TUYA_MQTT_ENDPOINT_WESTERN_AMERICA);
 
 
 }

@@ -9,30 +9,49 @@
 #include <PubSubClient.h>
 #include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
-#ifdef ESP8266
-    #include <ESP8266HTTPClient.h>
-#else
-    #include <HTTPClient.h>
-#endif
+
+#define TUYA_MQTT_ENDPOINT_CHINA "m1.tuyacn.com"
+#define TUYA_MQTT_ENDPOINT_CENTRAL_EUROPE "m1.tuyaeu.com"
+#define TUYA_MQTT_ENDPOINT_WESTERN_AMERICA "m1.tuyaus.com"
+#define TUYA_MQTT_ENDPOINT_INDIA "m1.tuyain.com"
 
 class TuyaLink;
 
+class PropertyValue {
+	friend class TuyaLink;
+
+public: 
+	// TODO: restrict
+	template <typename T> inline T as() {
+		return value.as<T>();
+	}
+
+	template <typename T> inline bool is() {
+		return value.is<T>();
+	}
+
+private:
+	PropertyValue(JsonVariant value):value(value) {};
+	JsonVariant value;
+
+};
+
 typedef std::function<void(TuyaLink&)> TuyaLinkConnectedCallback;
 typedef std::function<void(TuyaLink&)> TuyaLinkDisconnectedCallback;
-typedef std::function<void(TuyaLink&, const char*)> TuyaLinkOnMessageCallback;
+typedef std::function<bool(TuyaLink&, const char* name, PropertyValue value)> TuyaLinkOnPropertySetCallback;
 
 class TuyaLink {
 public:
 	TuyaLink();
-	bool begin(String productKey, String deviceId, String deviceSecret);
+	bool begin(String productKey, String deviceId, String deviceSecret, const char* mqttEndpoint);
 	void onConnected(TuyaLinkConnectedCallback onConnectedCallback) {
 		this->onConnectedCallback = onConnectedCallback;
 	};
 	void onDisconnected(TuyaLinkDisconnectedCallback onDisconnectedCallback) {
 		this->onDisconnectedCallback = onDisconnectedCallback;
 	};
-	void onMessage(TuyaLinkOnMessageCallback onMessageCallback) {
-		this->onMessageCallback = onMessageCallback;
+	void onPropertySet(TuyaLinkOnPropertySetCallback onPropertySetCallback) {
+		this->onPropertySetCallback = onPropertySetCallback;
 	}
 
 	bool reportProperty(const String& name, auto value) {
@@ -51,14 +70,15 @@ private:
 	String deviceSecret;
 	TuyaLinkConnectedCallback onConnectedCallback = [](TuyaLink&){};
 	TuyaLinkDisconnectedCallback onDisconnectedCallback = [](TuyaLink&){};
-	TuyaLinkOnMessageCallback onMessageCallback = [](TuyaLink&, const char* msg){};
+	TuyaLinkOnPropertySetCallback onPropertySetCallback = [](TuyaLink&, const char* msg, PropertyValue value){ return true; };
 
 	bool reconnect();
-
 
 	void initReportPropertyMessage(JsonDocument& doc, const String& property);
 
 	bool report(const char* topic, const JsonDocument& doc);
+
+	void processIncomingMessage(char* topic, uint8_t* message, unsigned int len);
 };
 
 #endif
