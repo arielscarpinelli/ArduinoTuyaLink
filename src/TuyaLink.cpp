@@ -33,6 +33,10 @@ bool TuyaLink::reconnect() {
     char username[128];
     char password[128];
 
+    if (WiFi.status() != WL_CONNECTED) {
+        return false;
+    }
+
 	if(tuya_mqtt_auth_signature_calculate(deviceId.c_str(), deviceSecret.c_str(), clientId, username, password) != 0) {
         DEBUG_TUYA("failed to calculate signature");
         return false;
@@ -58,11 +62,83 @@ bool TuyaLink::reconnect() {
 	return true;
 }
 
-void TuyaLink::loop() {
-    if (!pubSub.loop()) {
-        reconnect();
+bool TuyaLink::loop() {
+    switch(configMode) {
+        case TUYA_CONFIG_MODE_NONE:
+        default:
+            if (!pubSub.loop()) {
+                return reconnect();
+            }
+            return true;
+#ifdef TUYA_ENABLE_AP_CONFIG_MODE
+        case TUYA_CONFIG_MODE_AP:
+            return loopApConfig();
+#endif            
+        case TUYA_CONFIG_MODE_SMARTCONFIG:
+            // TODO
+            return true;
     }
 }
+
+#ifdef TUYA_ENABLE_AP_CONFIG_MODE
+bool TuyaLink::beginApConfigMode() {
+    if(!WiFi.softAP("SL-12345")) {
+        DEBUG_TUYA("cannot start AP mode");
+        return false;
+    }
+    if(!udp.begin(TUYA_UDP_CONFIG_PORT)) {
+        DEBUG_TUYA("cannot initialize udp");
+        return false;
+    }
+    configMode = TUYA_CONFIG_MODE_AP;
+    return true;
+}
+
+bool TuyaLink::loopApConfig() {
+    int packetSize = udp.parsePacket();
+    if (packetSize > 0) {
+        char incomingPacket[packetSize + 1];
+        int len = udp.read(incomingPacket, packetSize);
+        if (len > 0) {
+            DEBUG_TUYA("Received %d bytes from %s, port %d", packetSize, udp.remoteIP().toString().c_str(), udp.remotePort());
+            char* configStart = (char*)memchr(incomingPacket, '{', len);
+            char* configEnd = (char*)memrchr(incomingPacket, '}', len);
+
+            if (!configStart || !configEnd) {
+                DEBUG_TUYA("received packet has no json");
+                return false;
+            }
+
+            configEnd[1] = NULL;
+
+            StaticJsonDocument<256> doc;
+            DeserializationError err = deserializeJson(doc, configStart);
+            if (err) {
+                DEBUG_TUYA("failed to deserialize json: %s %s", err.c_str(), configStart);
+                return false;
+            }
+
+            if (!doc.containsKey("ssid") || !doc.containsKey("passwd")) {
+                DEBUG_TUYA("failed to deserialize json: %s %s", err.c_str(), configStart);
+                return false;
+            }
+
+            String ssid = doc["ssid"];
+            String passwd = doc["passwd"];
+            String token = doc["token"];
+
+            WiFi.mode(WIFI_STA);
+            WiFi.persistent(true);
+            WiFi.begin(ssid, passwd);
+            configMode = TUYA_CONFIG_MODE_NONE;
+            return true;
+        } else {
+            DEBUG_TUYA("failed to read incoming packet of size %d", packetSize);
+        }
+    }
+    return false;
+}
+#endif
 
 void TuyaLink::initReportPropertyMessage(JsonDocument& doc, const String& property) {
 
