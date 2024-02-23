@@ -68,11 +68,9 @@ int tuya_mqtt_auth_signature_calculate(const char* deviceId, const char* deviceS
 
     /* client ID */
     sprintf(username, "%s|signMethod=hmacSha256,timestamp=%d,secureMode=1,accessType=1", deviceId, timestamp);
-    DEBUG_TUYA("username:%s", username);
 
     /* username */
     sprintf(clientID, "tuyalink_%s", deviceId);
-    DEBUG_TUYA("clientID:%s", clientID);
 
     /* password */
     int i = 0;
@@ -89,7 +87,6 @@ int tuya_mqtt_auth_signature_calculate(const char* deviceId, const char* deviceS
     for (i = 0; i < SHA256_DIGEST_LENGTH; i++) {
         sprintf(password + 2*i, "%02x", digest[i]);
     }
-    DEBUG_TUYA("password:%s", password);
 
     return 0;
 }

@@ -82,6 +82,7 @@ bool TuyaLink::loop() {
 
 #ifdef TUYA_ENABLE_AP_CONFIG_MODE
 bool TuyaLink::beginApConfigMode() {
+    DEBUG_TUYA("begin ap config mode");
     if(!WiFi.softAP("SL-12345")) {
         DEBUG_TUYA("cannot start AP mode");
         return false;
@@ -109,17 +110,19 @@ bool TuyaLink::loopApConfig() {
                 return false;
             }
 
+            DEBUG_TUYA("got json %s", configStart);
+
             configEnd[1] = NULL;
 
             StaticJsonDocument<256> doc;
             DeserializationError err = deserializeJson(doc, configStart);
             if (err) {
-                DEBUG_TUYA("failed to deserialize json: %s %s", err.c_str(), configStart);
+                DEBUG_TUYA("failed to deserialize json: %s ", err.c_str());
                 return false;
             }
 
             if (!doc.containsKey("ssid") || !doc.containsKey("passwd")) {
-                DEBUG_TUYA("failed to deserialize json: %s %s", err.c_str(), configStart);
+                DEBUG_TUYA("json does not contain ssid or passwd");
                 return false;
             }
 

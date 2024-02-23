@@ -19,8 +19,10 @@
 
 TuyaLink tuyaLink;
 
+bool enterConfig = false;
+
 void ICACHE_RAM_ATTR toggle() {
-    tuyaLink.beginApConfigMode();
+    enterConfig = true;
 }
 
 void setup() {
@@ -40,6 +42,10 @@ void setup() {
 }
 
 void loop() {
+    if (enterConfig) {
+        tuyaLink.beginApConfigMode();
+        enterConfig = false;
+    }
     tuyaLink.loop();
 }
 
